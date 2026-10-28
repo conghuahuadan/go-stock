@@ -71,6 +71,7 @@ const armCheckIdleTimer = () => {
   }, CHECK_IDLE_TIMEOUT)
 }
 
+/* 软件更新已停用，保留手动检查逻辑以便恢复。
 const onCheckUpdate = () => {
   if (checking.value) return
   closeCheckNotification()
@@ -95,6 +96,8 @@ const onCheckUpdate = () => {
     }
   })
 }
+
+*/
 
 const buildCatalogTree = (headings) => {
   if (!headings.length) return []
@@ -360,10 +363,12 @@ EventsOn("updateNeedAdmin", (msg) => {
               <template v-else>{{ vipReason || 'VIP 未生效' }}<template v-if="!vipActive && vipStartTime">（生效时间：{{ vipStartTime }}）</template></template>
             </n-gradient-text>
             <n-flex justify="center" :size="12" class="hero-actions">
+              <!-- 软件更新已停用，保留检查入口代码以便恢复。
               <n-button size="small" @click="onCheckUpdate" :loading="checking" :disabled="checking" type="info" tertiary round>
                 <template #icon>🔄</template>
                 {{ checking ? '检查中...' : '检查更新' }}
               </n-button>
+              -->
               <n-button size="small" @click="openManual" type="success" tertiary round>
                 <template #icon>📖</template>
                 查看用户手册

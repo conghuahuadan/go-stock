@@ -939,6 +939,7 @@ function deletePrompt(ID) {
             <n-form-item-gi :span="6" label="暗黑主题：" path="darkTheme">
               <n-switch v-model:value="formValue.darkTheme"/>
             </n-form-item-gi>
+            <!-- 软件更新已停用，隐藏更新通道，保留原控件以便恢复。
             <n-form-item-gi :span="8" label="更新通道：" path="updateChannel">
               <n-select v-model:value="formValue.updateChannel" :options="updateChannelOptions" />
               <n-tooltip placement="top">
@@ -959,6 +960,7 @@ function deletePrompt(ID) {
                 </template>
               </n-tooltip>
             </n-form-item-gi>
+            -->
             <n-form-item-gi :span="10" label="浏览器安装路径：" path="browserPath">
               <n-input type="text" placeholder="浏览器安装路径" v-model:value="formValue.browserPath" clearable/>
             </n-form-item-gi>

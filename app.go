@@ -1185,9 +1185,9 @@ func (a *App) domReady(ctx context.Context) {
 			a.setCronEntry("StockTransactionCacheClean", idTxClean)
 		}
 	}()
-	//检查新版本
+	// 保留股票基础数据同步；软件版本的启动检查与定时更新已停用。
 	go func() {
-		a.CheckUpdate(0)
+		// a.CheckUpdate(0)
 		go a.CheckStockBaseInfo(a.ctx)
 		go syncAllStockInfo(a.ctx)
 
@@ -1195,10 +1195,10 @@ func (a *App) domReady(ctx context.Context) {
 			logger.SugaredLogger.Errorf("Checking for updates...")
 			a.CheckStockBaseInfo(a.ctx)
 		})
-		a.cron.AddFunc("30 05 8,12,20 * * *", func() {
-			logger.SugaredLogger.Errorf("Checking for updates...")
-			a.CheckUpdate(0)
-		})
+		// a.cron.AddFunc("30 05 8,12,20 * * *", func() {
+		// 	logger.SugaredLogger.Errorf("Checking for updates...")
+		// 	a.CheckUpdate(0)
+		// })
 		a.cron.AddFunc("30 05 8,12,20 * * *", func() {
 			syncAllStockInfo(a.ctx)
 		})
