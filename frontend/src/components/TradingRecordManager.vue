@@ -257,10 +257,11 @@ async function refreshEffectiveVip() {
 
 function openKlineChart(row) {
   refreshEffectiveVip().then(() => {
-    if (vipLevel.value < 2) {
-      message.warning('查看K线仅限VIP2及以上用户使用')
-      return
-    }
+    // 2026-10-29：取消本地 K 线弹窗 VIP2 限制，保留原判断供后续参考。
+    // if (vipLevel.value < 2) {
+    //   message.warning('查看K线仅限VIP2及以上用户使用')
+    //   return
+    // }
     klineStockCode.value = toEastMoneyCode(row.StockCode)
     klineStockName.value = row.StockName || ''
     showKlineModal.value = true

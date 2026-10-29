@@ -1,12 +1,15 @@
 <template>
   <div v-if="vipGateLoading" class="vip-gate">
     <NSpin size="large" />
-    <div class="vip-gate-text">正在校验赞助身份…</div>
+    <!-- 原赞助校验改为服务连接检查，避免继续显示 VIP 相关文案。 -->
+    <div class="vip-gate-text">正在连接 AI 助手服务…</div>
   </div>
   <div v-else-if="!vipGateOk" class="vip-gate vip-gate-denied">
-    <div class="vip-gate-title">需要 VIP2 及以上</div>
+    <!-- 2026-10-29：VIP2 门槛已取消；此分支仅用于服务连接失败时提示。 -->
+    <!-- <div class="vip-gate-title">需要 VIP2 及以上</div> -->
+    <div class="vip-gate-title">服务暂不可用</div>
     <p class="vip-gate-desc">{{ vipGateMessage }}</p>
-    <p class="vip-gate-hint">请使用已在「关于」页填写赞助码的 go-stock，并确保 Web 服务读取同一套 data 配置（默认工作目录下的 data 目录）。</p>
+    <p class="vip-gate-hint">请确认 Web 服务已启动，并与桌面端使用同一套 data 配置。</p>
   </div>
   <div v-else class="page">
         <div class="header">
@@ -230,7 +233,8 @@ function refreshMotto() {
 const vipGateLoading = ref(true);
 const vipGateOk = ref(false);
 const vipGateMessage = ref(
-  "go-stock AI 助手（Web）仅对 VIP2 及以上有效赞助用户开放。请在 go-stock 桌面客户端「关于」页面填写赞助码。"
+  // 原 VIP2 提示已停用，保留状态请求用于检查后端是否可连接。
+  "无法连接 AI 助手服务，请确认服务已启动。"
 );
 
 const aiConfigId = ref<number | null>(null);
@@ -563,6 +567,7 @@ onMounted(async () => {
   vipGateLoading.value = true;
   try {
     const st = await getVipStatus();
+    // 后端已统一放开 VIP2；ok 仅用于判断 Web 助手服务是否可用。
     vipGateOk.value = !!st.ok;
     if (!st.ok && st.message) vipGateMessage.value = st.message;
   } catch (e: any) {

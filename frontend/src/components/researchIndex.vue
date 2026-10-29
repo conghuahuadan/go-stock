@@ -22,10 +22,17 @@ import {EventsOff, EventsOn} from "../../wailsjs/runtime";
 import {useRoute} from 'vue-router'
 
 
-const nowTab = ref("AI分析报告")
+const lastTabStorageKey = 'researchLastTab'
+const tabNames = [
+  'AI分析报告', '股票推荐记录', '异动监控', '涨停梯队',
+  '提示词模板', '提示词广场', '问答广场', '形态选股', '指标选股',
+  '定时任务', '交易日志', '每日操作计划', 'MCP服务', '技能管理', '知识库管理',
+]
+const lastTab = localStorage.getItem(lastTabStorageKey)
+const nowTab = ref(tabNames.includes(lastTab) ? lastTab : 'AI分析报告')
 const route = useRoute()
 onBeforeMount(() => {
-  nowTab.value = route.query.name
+  updateTab(route.query.name)
 })
 
 onBeforeUnmount(() => {
@@ -41,7 +48,9 @@ EventsOn("changeResearchTab", async (msg) => {
   updateTab(msg.name)
 })
 function updateTab(name) {
+  if (!tabNames.includes(name)) return
   nowTab.value = name
+  localStorage.setItem(lastTabStorageKey, name)
 }
 </script>
 

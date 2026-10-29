@@ -95,7 +95,9 @@ func (a *app) vipStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	level, active := data.EffectiveSponsorVipLevel()
-	ok := active && level >= 2
+	// 2026-10-29：兼容原状态接口，ok 表示 Web 助手可用；等级和有效期仍返回真实值。
+	// ok := active && level >= 2
+	ok := true
 	payload := map[string]any{
 		"ok":       ok,
 		"vipLevel": level,
@@ -115,17 +117,20 @@ func vipDeniedMessage(level int, active bool) string {
 }
 
 func requireVip2(w http.ResponseWriter) bool {
-	level, active := data.EffectiveSponsorVipLevel()
-	if active && level >= 2 {
-		return true
-	}
-	writeJSON(w, http.StatusForbidden, map[string]any{
-		"code":     "VIP2_REQUIRED",
-		"message":  vipDeniedMessage(level, active),
-		"vipLevel": level,
-		"active":   active,
-	})
-	return false
+	// 2026-10-29：Web 助手取消 VIP2 门槛，配置、会话、对话与分享接口统一放行。
+	// 保留函数名及原判断，供恢复使用；不修改用户真实赞助状态。
+	// level, active := data.EffectiveSponsorVipLevel()
+	// if active && level >= 2 {
+	// 	return true
+	// }
+	// writeJSON(w, http.StatusForbidden, map[string]any{
+	// 	"code":     "VIP2_REQUIRED",
+	// 	"message":  vipDeniedMessage(level, active),
+	// 	"vipLevel": level,
+	// 	"active":   active,
+	// })
+	// return false
+	return true
 }
 
 func (a *app) getAIConfigs(w http.ResponseWriter, _ *http.Request) {

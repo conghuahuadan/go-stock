@@ -111,10 +111,11 @@ async function showMultiKline(row) {
     return
   }
   await refreshEffectiveVip()
-  if (effectiveVipLevel.value < 2) {
-    message.warning('多周期 K 线仅限 VIP2 及以上用户使用，您当前权限不足')
-    return
-  }
+  // 2026-10-29：取消本地 K 线弹窗 VIP2 限制，保留原判断供后续参考。
+  // if (effectiveVipLevel.value < 2) {
+  //   message.warning('多周期 K 线仅限 VIP2 及以上用户使用，您当前权限不足')
+  //   return
+  // }
   multiKlineCode.value = em
   multiKlineName.value = row.SECURITY_NAME_ABBR || ''
   multiKlineModalShow.value = true

@@ -16,7 +16,24 @@ const hotStrategy = ref([])
 const customStrategies = ref([])
 const traceInfo = ref('')
 const tableScrollX = ref(2800)
-const leftTab = ref('hot')
+const strategyTabStorageKey = 'selectStockLastStrategyTab'
+const strategyStorageKeys = {
+  hot: 'selectStockLastHotStrategy',
+  custom: 'selectStockLastCustomStrategy',
+}
+const strategiesLoaded = {hot: false, custom: false}
+let searchRequestId = 0
+let searchLoading = null
+let disposed = false
+const leftTab = ref(localStorage.getItem(strategyTabStorageKey) === 'custom' ? 'custom' : 'hot')
+watch(leftTab, (tab) => {
+  localStorage.setItem(strategyTabStorageKey, tab)
+  restoreStrategy()
+}, {flush: 'sync'})
+onUnmounted(() => {
+  disposed = true
+  clearSearch()
+})
 const showSaveModal = ref(false)
 const vipLevel = ref(0)
 const darkTheme = ref(false)
@@ -156,9 +173,12 @@ function Search() {
     message.warning('请输入选股指标或者要求')
     return
   }
+  clearSearchResults()
+  const requestId = searchRequestId
   const loading = message.loading("正在获取选股数据...", {duration: 0});
+  searchLoading = loading
   SearchStock(search.value).then(res => {
-    loading.destroy()
+    if (disposed || requestId !== searchRequestId) return
     if (res.code == 100) {
       traceInfo.value = res.data.traceInfo.showText
       columns.value = res.data.result.columns.filter(item => !item.hiddenNeed && (item.title != "市场码" && item.title != "市场简称")).map(item => {
@@ -259,8 +279,45 @@ function Search() {
       }
     }
   }).catch(err => {
-    message.error(err)
+    if (!disposed && requestId === searchRequestId) message.error(err)
+  }).finally(() => {
+    loading.destroy()
+    if (searchLoading === loading) searchLoading = null
   })
+}
+
+function clearSearchResults() {
+  searchRequestId++
+  searchLoading?.destroy()
+  searchLoading = null
+  columns.value = []
+  dataList.value = []
+  traceInfo.value = ''
+  tableScrollX.value = 2800
+}
+
+function clearSearch() {
+  search.value = ''
+  clearSearchResults()
+}
+
+function strategyKey(strategy) {
+  // 热门策略排名会变化，使用条件文本识别；自定义策略使用稳定的数据库 ID。
+  return leftTab.value === 'hot' ? strategy.question : String(strategy.id)
+}
+
+function restoreStrategy() {
+  clearSearch()
+  const tab = leftTab.value
+  if (!strategiesLoaded[tab]) return
+  const strategies = tab === 'hot' ? hotStrategy.value : customStrategies.value
+  const remembered = localStorage.getItem(strategyStorageKeys[tab])
+  const strategy = strategies.find(item => strategyKey(item) === remembered) || strategies[0]
+  if (strategy) {
+    DoSearch(strategy)
+  } else {
+    localStorage.removeItem(strategyStorageKeys[tab])
+  }
 }
 
 function refreshEffectiveVip() {
@@ -294,15 +351,16 @@ function showStockKline(row) {
   refreshEffectiveVip().then(() => {
     klineStockCode.value = em
     klineStockName.value = stockName || ''
-    if (vipLevel.value < 2) {
-      message.warning('K线图仅限 VIP2 及以上用户使用，您当前权限不足，将在 10 秒后自动关闭')
-      klineModalShow.value = true
-      if (klineAutoCloseTimer) clearTimeout(klineAutoCloseTimer)
-      klineAutoCloseTimer = setTimeout(() => {
-        klineModalShow.value = false
-      }, 10000)
-      return
-    }
+    // 2026-10-29：取消本地 K 线弹窗 VIP2 限制，保留原判断供后续参考。
+    // if (vipLevel.value < 2) {
+    //   message.warning('K线图仅限 VIP2 及以上用户使用，您当前权限不足，将在 10 秒后自动关闭')
+    //   klineModalShow.value = true
+    //   if (klineAutoCloseTimer) clearTimeout(klineAutoCloseTimer)
+    //   klineAutoCloseTimer = setTimeout(() => {
+    //     klineModalShow.value = false
+    //   }, 10000)
+    //   return
+    // }
     klineModalShow.value = true
     if (klineAutoCloseTimer) clearTimeout(klineAutoCloseTimer)
   })
@@ -317,10 +375,11 @@ onBeforeMount(() => {
     if (result.darkTheme) darkTheme.value = true
   })
   GetHotStrategy().then(res => {
+    if (disposed) return
     if (res.code == 1) {
-      hotStrategy.value = res.data
-      search.value = hotStrategy.value[0].question
-      Search()
+      hotStrategy.value = res.data || []
+      strategiesLoaded.hot = true
+      if (leftTab.value === 'hot') restoreStrategy()
     }
   }).catch(err => {
     message.error(err)
@@ -331,15 +390,20 @@ onBeforeMount(() => {
 
 function loadCustomStrategies() {
   GetAllCustomStrategies().then(res => {
+    if (disposed) return
     customStrategies.value = res || []
+    strategiesLoaded.custom = true
+    if (leftTab.value === 'custom') restoreStrategy()
   }).catch(err => {
     message.error(err)
   })
 }
 
-function DoSearch(question) {
-  search.value = question
-  Search()
+function DoSearch(strategy) {
+  clearSearch()
+  localStorage.setItem(strategyStorageKeys[leftTab.value], strategyKey(strategy))
+  search.value = leftTab.value === 'hot' ? strategy.question : strategy.query
+  if (search.value) Search()
 }
 
 // 导出选股结果为 Excel：复用表格列定义（过滤操作列），行数据取当前结果集全量
@@ -448,7 +512,7 @@ function openCenteredWindow(url, width, height) {
 
       <n-list bordered style="text-align: left;" hoverable clickable v-show="leftTab==='hot'">
         <n-scrollbar style="max-height: calc(100vh - 210px);">
-          <n-list-item v-for="item in hotStrategy" :key="item.rank" @click="DoSearch(item.question)">
+          <n-list-item v-for="item in hotStrategy" :key="item.rank" @click="DoSearch(item)">
             <n-ellipsis line-clamp="1" :tooltip="true">
               <n-tag size="small" :bordered="false" type="info">#{{ item.rank }}</n-tag>
               <n-text type="warning">{{ item.question }}</n-text>
@@ -481,7 +545,7 @@ function openCenteredWindow(url, width, height) {
                   </n-popconfirm>
                 </n-flex>
               </template>
-              <div @click="DoSearch(item.query)" style="cursor: pointer;">
+              <div @click="DoSearch(item)" style="cursor: pointer;">
                 <n-ellipsis line-clamp="1" :tooltip="true">
                   <n-tag size="small" :bordered="false" type="success">
                     <template #icon><n-icon :component="BookmarkOutline" size="12"/></template>

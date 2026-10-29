@@ -1381,7 +1381,7 @@ function groupNameById(id) {
 function handleFollowSelect(key) {
   if (key === 'new') {
     if (!data?.code) {
-      message.error("请输入有效股票代码")
+      message.error("请输入有效股票代码，或从下拉列表选择股票")
       showPopover.value = true
       return
     }
@@ -1396,7 +1396,7 @@ function handleFollowSelect(key) {
 // 关注并加入分组（groupId=0 表示不分组），参考形态选股 doFollow
 function doFollowStock(groupId) {
   if (!data?.code) {
-    message.error("请输入有效股票代码")
+    message.error("请输入有效股票代码，或从下拉列表选择股票")
     showPopover.value = true
     return
   }
@@ -1459,9 +1459,30 @@ function SendDanmu() {
 let stockSearchTimer = null
 let stockSearchSeq = 0
 
+function normalizeFollowCode(value) {
+  const code = (value || '').trim()
+  const match = code.match(/^(.+)\.(SH|SZ|BJ|HK|US)$/i)
+  return match ? match[2].toLowerCase() + match[1] : code
+}
+
+function resolveFollowCode(value, items) {
+  const keyword = (value || '').trim()
+  const matches = items.filter(item => item.name === keyword || item.ts_code === keyword)
+  const codes = [...new Set(matches.map(item => normalizeFollowCode(item.ts_code)))]
+  if (codes.length === 1) return codes[0]
+  // 中文名称和模糊搜索词不能直接作为行情代码提交。
+  return /^[a-zA-Z0-9_.:-]+$/.test(keyword) ? normalizeFollowCode(keyword) : ''
+}
+
 function getStockList(value) {
-
-
+  value = (value || '').trim()
+  // AutoComplete 先触发 select，再将候选项的 label 回填输入框。
+  const selected = options.value.find(option => option.label === value)
+  if (selected) {
+    onSelect(selected.value)
+    blinkBorder(data.code)
+    return
+  }
   // //console.log("getStockList",value)
   let result;
   result = stockList.value.filter(item => item.name.includes(value) || item.ts_code.includes(value))
@@ -1471,9 +1492,7 @@ function getStockList(value) {
       value: item.ts_code
     }
   })
-  if (value && value.indexOf("-") <= 0) {
-    data.code = value
-  }
+  data.code = resolveFollowCode(value, result)
 
   //console.log("getStockList-options",data.code)
 
@@ -1488,11 +1507,12 @@ function getStockList(value) {
   // 非空关键字时，防抖调用后端在线搜索（含场内 ETF：本地 FundBasic 缺失时会在线拉取），
   // 合并本地 stockList 未覆盖的结果，使 513310 等场内基金可被搜到并关注
   if (stockSearchTimer) clearTimeout(stockSearchTimer)
-  if (!value) return
   const seq = ++stockSearchSeq
+  if (!value) return
   stockSearchTimer = setTimeout(() => {
     GetStockList(value).then(res => {
       if (seq !== stockSearchSeq || !res || !res.length) return
+      data.code = resolveFollowCode(value, result.concat(res))
       const existing = new Set(options.value.map(o => o.value))
       const extra = []
       for (const item of res) {
@@ -1608,15 +1628,10 @@ function GetSortKey(sort, code) {
 }
 
 function onSelect(item) {
-  ////console.log("onSelect",item)
-
-  if (item.indexOf("-") > 0) {
-    item = item.split("-")[1].toLowerCase()
-  }
-  if (item.indexOf(".") > 0) {
-    data.code = item.split(".")[1].toLowerCase() + item.split(".")[0]
-  }
-
+  // 选择候选项后，旧搜索请求不能覆盖已选中的代码。
+  if (stockSearchTimer) clearTimeout(stockSearchTimer)
+  ++stockSearchSeq
+  data.code = normalizeFollowCode(item)
 }
 
 function openCenteredWindow(url, width, height) {
@@ -2924,18 +2939,19 @@ async function showLightweightKline(code, name) {
 
   await refreshEffectiveVip()
   // 检查 VIP 权限：有效期内 VIP2 及以上（与 AI 助手 Web 端校验一致）
-  if (vipLevel.value < 2) {
-    message.warning('多周期 K 线仅限 VIP2 及以上用户使用，您当前权限不足，将在 10 秒后自动关闭')
-    lwKlineCode.value = em
-    lwKlineName.value = name || ''
-    modalShow6.value = true
-    // 10 秒后自动关闭
-    klineAutoCloseTimer.value = setTimeout(() => {
-      modalShow6.value = false
-      message.info('权限不足，多周期 K 线已自动关闭')
-    }, 10000)
-    return
-  }
+  // 2026-10-29：取消本地 K 线弹窗 VIP2 限制，保留原判断供后续参考。
+  // if (vipLevel.value < 2) {
+  //   message.warning('多周期 K 线仅限 VIP2 及以上用户使用，您当前权限不足，将在 10 秒后自动关闭')
+  //   lwKlineCode.value = em
+  //   lwKlineName.value = name || ''
+  //   modalShow6.value = true
+  //   // 10 秒后自动关闭
+  //   klineAutoCloseTimer.value = setTimeout(() => {
+  //     modalShow6.value = false
+  //     message.info('权限不足，多周期 K 线已自动关闭')
+  //   }, 10000)
+  //   return
+  // }
   modalShow6.value = true
 }
 

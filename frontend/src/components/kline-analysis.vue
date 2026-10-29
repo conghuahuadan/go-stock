@@ -74,28 +74,29 @@ function toEastMoneyCode(code) {
   return ''
 }
 
-async function refreshEffectiveVip() {
-  try {
-    const r = await GetEffectiveSponsorVip()
-    const active = !!r?.active
-    const lvl = Number(r?.vipLevel ?? 0)
-    vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
-    vipReason.value = active ? '' : String(r?.reason ?? '')
-  } catch (_) {
-    vipLevel.value = 0
-    vipReason.value = ''
-  }
-}
-
-function startVipCheck() {
-  if (vipTimer) clearInterval(vipTimer)
-  if (vipLevel.value < 2) {
-    showVipModal.value = true
-    vipTimer = setInterval(() => {
-      showVipModal.value = true
-    }, 60000)
-  }
-}
+// 2026-10-29：停用页面内的 VIP2 弹窗与每分钟重复提醒，保留原实现供恢复。
+// async function refreshEffectiveVip() {
+//   try {
+//     const r = await GetEffectiveSponsorVip()
+//     const active = !!r?.active
+//     const lvl = Number(r?.vipLevel ?? 0)
+//     vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
+//     vipReason.value = active ? '' : String(r?.reason ?? '')
+//   } catch (_) {
+//     vipLevel.value = 0
+//     vipReason.value = ''
+//   }
+// }
+//
+// function startVipCheck() {
+//   if (vipTimer) clearInterval(vipTimer)
+//   if (vipLevel.value < 2) {
+//     showVipModal.value = true
+//     vipTimer = setInterval(() => {
+//       showVipModal.value = true
+//     }, 60000)
+//   }
+// }
 
 // 检索归一化：全角转半角，并去掉空格、连字符等分隔符，保证「连打」能命中
 // 例：五 粮 液 → 五粮液、中巨芯-U → 中巨芯u、万  科Ａ → 万科a
@@ -418,8 +419,9 @@ onMounted(async () => {
   window.addEventListener('resize', updateChartHeight)
   window.addEventListener('keydown', onGlobalKeydown)
 
-  await refreshEffectiveVip()
-  startVipCheck()
+  // 页面现在直接加载行情，不再触发 VIP 校验和提醒定时器。
+  // await refreshEffectiveVip()
+  // startVipCheck()
 
   stockChangeHandler = (data) => {
     if (data && data.ts_code) {
@@ -527,6 +529,7 @@ onBeforeUnmount(() => {
       <div v-else class="quick-search-empty">无匹配结果</div>
     </div>
 
+    <!-- 2026-10-29：VIP2 限制已停用，原提示弹窗注释保留。
     <n-modal v-model:show="showVipModal" :close-on-esc="true" :mask-closable="true" :z-index="9999">
       <n-card style="max-width: 440px; border-radius: 16px; padding: 24px" :theme-overrides="darkTheme ? { color: '#1e1e1e', textColor: '#e2e8f0' } : {}" role="dialog" aria-modal="true">
         <NFlex vertical align="center" :size="20">
@@ -549,6 +552,7 @@ onBeforeUnmount(() => {
         </NFlex>
       </n-card>
     </n-modal>
+    -->
   </div>
 </template>
 

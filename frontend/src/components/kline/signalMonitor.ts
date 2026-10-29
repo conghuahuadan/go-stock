@@ -230,7 +230,7 @@ function migrateOkxPoolTo15m() {
 }
 migrateOkxPoolTo15m()
 
-// ===== 权限（VIP2 及以上，两套监控共用同一门槛） =====
+// ===== 监控访问策略（股票、OKX 模拟盘与实盘共用） =====
 
 /** 使用门槛：信号监控只对 VIP2 及以上赞助用户开放 */
 export const SIGNAL_MONITOR_VIP_LEVEL = 2
@@ -255,9 +255,14 @@ export async function currentVipLevel() {
   }
 }
 
-/** 是否具备使用信号监控的权限 */
+/**
+ * 2026-10-29：取消本地信号监控的 VIP2 门槛，入口与后台节拍统一放行。
+ * 保留公共函数与原判断，避免只放开面板后，后台扫描/趋势跟随仍被拦截。
+ * 这里只调整赞助门槛；监控开关、交易环境、自动交易和自动调池确认仍由各自逻辑判断。
+ */
 export async function canUseSignalMonitor() {
-  return (await currentVipLevel()) >= SIGNAL_MONITOR_VIP_LEVEL
+  // return (await currentVipLevel()) >= SIGNAL_MONITOR_VIP_LEVEL
+  return true
 }
 
 /** 给 Promise 套硬超时：超时 reject 但不打断在途任务（其结果自行收尾），保证调用方的锁必然释放 */

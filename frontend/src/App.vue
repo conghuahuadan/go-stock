@@ -162,43 +162,46 @@ function updateMarketStatus() {
   })
 }
 
-/** 用于功能权限：仅在赞助有效期内为解密等级，否则为 0（与 EffectiveSponsorVipStatus 一致） */
-const vipLevel = ref(0)
-/** 未生效原因，用于向用户解释为什么 VIP2 权益仍被拦截（如"尚未生效/已到期"） */
-const vipInactiveReason = ref('')
-let discreteMessage = null
-function getDiscreteMessage() {
-  if (!discreteMessage) {
-    discreteMessage = createDiscreteApi(['message'], {
-      configProviderProps: {
-        theme: enableDarkTheme.value ? darkTheme : lightTheme,
-      },
-    })
-  }
-  return discreteMessage.message
-}
-async function refreshEffectiveVip() {
-  try {
-    const r = await GetEffectiveSponsorVip()
-    const active = !!r?.active
-    const lvl = Number(r?.vipLevel ?? 0)
-    vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
-    vipInactiveReason.value = active ? '' : String(r?.reason ?? '')
-  } catch (_) {
-    vipLevel.value = 0
-    vipInactiveReason.value = ''
-  }
-}
+// 2026-10-29：独立 K 线分析向本地用户开放；原 VIP 状态与提示逻辑注释保留，便于恢复。
+// /** 用于功能权限：仅在赞助有效期内为解密等级，否则为 0（与 EffectiveSponsorVipStatus 一致） */
+// const vipLevel = ref(0)
+// /** 未生效原因，用于向用户解释为什么 VIP2 权益仍被拦截（如"尚未生效/已到期"） */
+// const vipInactiveReason = ref('')
+// let discreteMessage = null
+// function getDiscreteMessage() {
+//   if (!discreteMessage) {
+//     discreteMessage = createDiscreteApi(['message'], {
+//       configProviderProps: {
+//         theme: enableDarkTheme.value ? darkTheme : lightTheme,
+//       },
+//     })
+//   }
+//   return discreteMessage.message
+// }
+// async function refreshEffectiveVip() {
+//   try {
+//     const r = await GetEffectiveSponsorVip()
+//     const active = !!r?.active
+//     const lvl = Number(r?.vipLevel ?? 0)
+//     vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
+//     vipInactiveReason.value = active ? '' : String(r?.reason ?? '')
+//   } catch (_) {
+//     vipLevel.value = 0
+//     vipInactiveReason.value = ''
+//   }
+// }
+
 async function handleKlineAnalysisClick() {
-  await refreshEffectiveVip()
-  if (vipLevel.value < 2) {
-    // 有赞助码但未生效时给出具体原因（如尚未生效 / 已到期 / 字段异常），
-    // 避免"关于页显示 VIP2，这里却只说需要升级"的认知冲突
-    getDiscreteMessage().warning(vipInactiveReason.value
-      ? `K线分析需要 VIP2 及以上有效赞助：${vipInactiveReason.value}`
-      : 'K线分析功能需要 VIP2 及以上赞助用户才能使用，请升级后体验')
-    return
-  }
+  // 不再按赞助等级拦截菜单，直接进入 K 线分析页面。
+  // await refreshEffectiveVip()
+  // if (vipLevel.value < 2) {
+  //   // 有赞助码但未生效时给出具体原因（如尚未生效 / 已到期 / 字段异常），
+  //   // 避免"关于页显示 VIP2，这里却只说需要升级"的认知冲突
+  //   getDiscreteMessage().warning(vipInactiveReason.value
+  //     ? `K线分析需要 VIP2 及以上有效赞助：${vipInactiveReason.value}`
+  //     : 'K线分析功能需要 VIP2 及以上赞助用户才能使用，请升级后体验')
+  //   return
+  // }
   activeKey.value = 'klineAnalysis'
   router.push({ name: 'klineAnalysis' })
 }
@@ -873,9 +876,6 @@ const menuOptions = ref([
                 },
                 onClick: () => {
                   activeKey.value = 'research'
-                  setTimeout(() => {
-                    EventsEmit("changeResearchTab", {ID: 0, name: 'AI分析报告'})
-                  }, 100)
                 },
               },
               {default: () => '研究中心'}

@@ -673,42 +673,44 @@ function closePanel() {
   panelVisible.value = false
 }
 
-async function ensureVipInfo() {
-  // 注意：不能缓存结果。改用 GetEffectiveSponsorVip（后端每次同步本地解密并判断有效期，无网络 IO），
-  // 旧方案读 GetSponsorInfo 依赖启动后台 goroutine（CheckUpdate）异步填充 SponsorInfo，
-  // 启动早期预加载会读到空值并把 vipLevel=0 固化，导致 VIP2 用户被误拦。
-  // 并发调用必须等待同一个在途请求，不能直接 return：否则调用方会在 vipLevel 仍为 0 时继续判断，误拦 VIP2 用户
-  if (vipInflight) return vipInflight
-  vipInflight = (async () => {
-    try {
-      const res = await GetEffectiveSponsorVip()
-      const lvl = Number(res?.vipLevel ?? 0)
-      const active = !!res?.active
-      vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
-      vipReason.value = active ? '' : String(res?.reason ?? '')
-    } catch (_) {
-      vipLevel.value = 0
-      vipReason.value = ''
-    }
-  })()
-  try {
-    await vipInflight
-  } finally {
-    vipInflight = null
-  }
-}
+// 2026-10-29：旧版助手与 Agent 助手一致，停用入口 VIP2 校验；原实现保留供恢复。
+// async function ensureVipInfo() {
+//   // 注意：不能缓存结果。改用 GetEffectiveSponsorVip（后端每次同步本地解密并判断有效期，无网络 IO），
+//   // 旧方案读 GetSponsorInfo 依赖启动后台 goroutine（CheckUpdate）异步填充 SponsorInfo，
+//   // 启动早期预加载会读到空值并把 vipLevel=0 固化，导致 VIP2 用户被误拦。
+//   // 并发调用必须等待同一个在途请求，不能直接 return：否则调用方会在 vipLevel 仍为 0 时继续判断，误拦 VIP2 用户
+//   if (vipInflight) return vipInflight
+//   vipInflight = (async () => {
+//     try {
+//       const res = await GetEffectiveSponsorVip()
+//       const lvl = Number(res?.vipLevel ?? 0)
+//       const active = !!res?.active
+//       vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
+//       vipReason.value = active ? '' : String(res?.reason ?? '')
+//     } catch (_) {
+//       vipLevel.value = 0
+//       vipReason.value = ''
+//     }
+//   })()
+//   try {
+//     await vipInflight
+//   } finally {
+//     vipInflight = null
+//   }
+// }
 
 async function togglePanel() {
   if (!panelVisible.value) {
     ensureSummaryEvent()
-    // 每次打开前重新校验（后端为同步本地解密，微秒级，不影响打开速度）
-    await ensureVipInfo()
-    if ((vipLevel.value ?? 0) < 2) {
-      message.warning(vipReason.value
-        ? `go-stock AI 助手需要 VIP2 及以上有效赞助：${vipReason.value}`
-        : 'go-stock AI 助手功能仅对 VIP2 及以上赞助用户开放，请前往关于页面查看赞助方式。')
-      return
-    }
+    // 使用用户配置的模型，直接打开；保留原 VIP2 拦截分支。
+    // // 每次打开前重新校验（后端为同步本地解密，微秒级，不影响打开速度）
+    // await ensureVipInfo()
+    // if ((vipLevel.value ?? 0) < 2) {
+    //   message.warning(vipReason.value
+    //     ? `go-stock AI 助手需要 VIP2 及以上有效赞助：${vipReason.value}`
+    //     : 'go-stock AI 助手功能仅对 VIP2 及以上赞助用户开放，请前往关于页面查看赞助方式。')
+    //   return
+    // }
     openPanel()
   } else {
     closePanel()

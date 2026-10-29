@@ -541,7 +541,7 @@ import {
   GetConfig,
   GetFollowList,
   GetPromptTemplates,
-  GetEffectiveSponsorVip,
+  // GetEffectiveSponsorVip, // 恢复下方 VIP 校验时一并取消此处注释
   SearchStock,
   ShareText,
   SaveImage,
@@ -871,11 +871,14 @@ function showHint(text) {
   if (hintTimer) clearTimeout(hintTimer)
   hintTimer = setTimeout(() => { hintVisible.value = false }, 3000)
 }
-const vipLevel = ref(0)
-/** 赞助码未生效原因，用于向用户解释为什么 VIP2 权益仍被拦截 */
-const vipReason = ref('')
-/** 在途的 VIP 校验请求：并发调用共享同一个 Promise，避免其中一次提前返回读到 vipLevel=0 */
-let vipInflight = null
+
+// 2026-10-29：桌面 AI Agent 助手使用用户配置的模型，取消打开入口时的 VIP2 限制。
+// 保留原校验状态供恢复；恢复时需同时取消接口导入、状态、校验函数和入口判断的注释。
+// const vipLevel = ref(0)
+// /** 赞助码未生效原因，用于向用户解释为什么 VIP2 权益仍被拦截 */
+// const vipReason = ref('')
+// /** 在途的 VIP 校验请求：并发调用共享同一个 Promise，避免其中一次提前返回读到 vipLevel=0 */
+// let vipInflight = null
 
 // 有任一会话在后台运行且面板未打开时，边角触发按钮显示忙碌角标
 const hasBackgroundTask = computed(() =>
@@ -1581,41 +1584,43 @@ function closePanel() {
   panelVisible.value = false
 }
 
-async function ensureVipInfo() {
-  // 注意：不能缓存结果。改用 GetEffectiveSponsorVip（后端每次同步本地解密并判断有效期，无网络 IO），
-  // 旧方案读 GetSponsorInfo 依赖启动后台 goroutine（CheckUpdate）异步填充 SponsorInfo，
-  // 启动早期预加载会读到空值并把 vipLevel=0 固化，导致 VIP2 用户被误拦。
-  // 并发调用必须等待同一个在途请求，不能直接 return：否则调用方会在 vipLevel 仍为 0 时继续判断，误拦 VIP2 用户
-  if (vipInflight) return vipInflight
-  vipInflight = (async () => {
-    try {
-      const res = await GetEffectiveSponsorVip()
-      const lvl = Number(res?.vipLevel ?? 0)
-      const active = !!res?.active
-      vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
-      vipReason.value = active ? '' : String(res?.reason ?? '')
-    } catch (_) {
-      vipLevel.value = 0
-      vipReason.value = ''
-    }
-  })()
-  try {
-    await vipInflight
-  } finally {
-    vipInflight = null
-  }
-}
+// 原 VIP 信息读取逻辑：当前入口不再调用，保留并注释以便后续恢复。
+// async function ensureVipInfo() {
+//   // 注意：不能缓存结果。改用 GetEffectiveSponsorVip（后端每次同步本地解密并判断有效期，无网络 IO），
+//   // 旧方案读 GetSponsorInfo 依赖启动后台 goroutine（CheckUpdate）异步填充 SponsorInfo，
+//   // 启动早期预加载会读到空值并把 vipLevel=0 固化，导致 VIP2 用户被误拦。
+//   // 并发调用必须等待同一个在途请求，不能直接 return：否则调用方会在 vipLevel 仍为 0 时继续判断，误拦 VIP2 用户
+//   if (vipInflight) return vipInflight
+//   vipInflight = (async () => {
+//     try {
+//       const res = await GetEffectiveSponsorVip()
+//       const lvl = Number(res?.vipLevel ?? 0)
+//       const active = !!res?.active
+//       vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
+//       vipReason.value = active ? '' : String(res?.reason ?? '')
+//     } catch (_) {
+//       vipLevel.value = 0
+//       vipReason.value = ''
+//     }
+//   })()
+//   try {
+//     await vipInflight
+//   } finally {
+//     vipInflight = null
+//   }
+// }
 
 async function togglePanel() {
   if (!panelVisible.value) {
-    // 每次打开前重新校验（后端为同步本地解密，微秒级，不影响打开速度）
-    await ensureVipInfo()
-    if ((vipLevel.value ?? 0) < 2) {
-      message.warning(vipReason.value
-        ? `go-stock AI Agent 助手需要 VIP2 及以上有效赞助：${vipReason.value}`
-        : 'go-stock AI Agent 助手功能仅对 VIP2 及以上赞助用户开放，请前往关于页面查看赞助方式。')
-      return
-    }
+    // 已停用 VIP2 入口拦截；模型可用性仍取决于 AI 配置与服务端响应。
+    // // 每次打开前重新校验（后端为同步本地解密，微秒级，不影响打开速度）
+    // await ensureVipInfo()
+    // if ((vipLevel.value ?? 0) < 2) {
+    //   message.warning(vipReason.value
+    //     ? `go-stock AI Agent 助手需要 VIP2 及以上有效赞助：${vipReason.value}`
+    //     : 'go-stock AI Agent 助手功能仅对 VIP2 及以上赞助用户开放，请前往关于页面查看赞助方式。')
+    //   return
+    // }
     openPanel()
   } else {
     closePanel()
@@ -2137,7 +2142,7 @@ onMounted(() => {
   EventsOn('updateSettings', loadAiConfigs)
   // 全局快捷键：Esc 收起面板 / Ctrl+K 新建会话（仅面板打开时生效，见 onGlobalKeydown）
   document.addEventListener('keydown', onGlobalKeydown)
-  // 预加载技能列表，首次点击打开抽屉时无需等待（VIP 校验须在打开时实时获取，见 ensureVipInfo）
+  // 预加载技能列表，首次点击打开抽屉时无需等待
   loadSkills()
   loadHistory()
   loadAiConfigs()

@@ -353,6 +353,10 @@ func (a *App) CheckUpdate(flag int) {
 
 	emitStatus("connecting", "正在连接更新服务器...")
 
+	// 2026-10-29：资讯同步取消 VIP2 门槛，并与后续赞助校验/版本查询结果解耦。
+	// 仍沿用检查更新的触发周期，不因 GitHub 请求失败而漏掉本轮同步。
+	go a.syncNews()
+
 	sponsorCode := strutil.Trim(a.GetConfig().SponsorCode)
 	if sponsorCode != "" {
 		raw, err := data.SafeDecryptSponsorCode(sponsorCode, BuildKey)
@@ -369,14 +373,15 @@ func (a *App) CheckUpdate(flag int) {
 	}
 
 	// 定制版本：不检查新版本、不启用自动更新（启动检查/定时检查/手动检查均在此拦截），
-	// 仅保留赞助码解密与 VIP 等级判定（VIP2 及以上仍同步资讯）
+	// 仍保留赞助信息读取；资讯已在上方独立同步，不再受 VIP2 等级影响。
 	if CustomBuild {
 		if _, vipLevel, ok := a.isVip(sponsorCode, "", &models.GitHubReleaseVersion{}); ok {
 			level, _ := convertor.ToInt(vipLevel)
 			a.VipLevel = level
-			if level >= 2 {
-				go a.syncNews()
-			}
+			// 原 VIP2 同步条件注释保留；同步已移至上方，避免重复请求。
+			// if level >= 2 {
+			// 	go a.syncNews()
+			// }
 		}
 		emitDone(false)
 		return
@@ -450,9 +455,10 @@ func (a *App) CheckUpdate(flag int) {
 	if _, vipLevel, ok := a.isVip(sponsorCode, "", releaseVersion); ok {
 		level, _ := convertor.ToInt(vipLevel)
 		a.VipLevel = level
-		if level >= 2 {
-			go a.syncNews()
-		}
+		// 原 VIP2 同步条件注释保留；同步已移至上方，避免重复请求。
+		// if level >= 2 {
+		// 	go a.syncNews()
+		// }
 	}
 
 	if releaseVersion.TagName != Version {
@@ -818,10 +824,16 @@ func (a *App) syncNews() {
 	url := fmt.Sprintf("http://go-stock.sparkmemory.top:16666/FinancialNews/json?since=%d", time.Now().Add(-24*time.Hour).Unix())
 	//logger.SugaredLogger.Infof("syncNews:%s", url)
 	resp, err := client.R().SetDoNotParseResponse(true).Get(url)
-	body := resp.RawBody()
-	defer body.Close()
+	// 取消等级限制后，所有用户都会触发同步；网络失败时先返回，避免解引用空响应。
 	if err != nil {
 		logger.SugaredLogger.Errorf("syncNews error:%s", err.Error())
+		return
+	}
+	body := resp.RawBody()
+	defer body.Close()
+	if resp.IsError() {
+		logger.SugaredLogger.Errorf("syncNews HTTP error: %s", resp.Status())
+		return
 	}
 	scanner := bufio.NewScanner(body)
 	for scanner.Scan() {
